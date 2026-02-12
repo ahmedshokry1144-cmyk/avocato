@@ -136,15 +136,15 @@ border:1px solid #ccc
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
-import { getDatabase, ref, push, onValue, update, remove }
-from "https://www.gstatic.com/firebasejs/12.9.0/firebase-database.js";
+import { getDatabase, ref, push, onValue, update, remove } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-database.js";
 
+// ================= Firebase Config =================
 const firebaseConfig = {
   apiKey: "AIzaSyDEAkB0SmBmzekCGiVHdajSFAJolgSJJ9A",
   authDomain: "ahmed-c9232.firebaseapp.com",
   databaseURL: "https://ahmed-c9232-default-rtdb.firebaseio.com",
   projectId: "ahmed-c9232",
-  storageBucket: "ahmed-c9232.firebasestorage.app",
+  storageBucket: "ahmed-c9232.appspot.com",
   messagingSenderId: "30403669161",
   appId: "1:30403669161:web:2655ed5a02b1e1ace74db8"
 };
@@ -152,54 +152,68 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-window.show = id=>{
-  document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
+// ================= التحكم بالصفحات =================
+window.show = id => {
+  document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
   document.getElementById(id).classList.add("active");
 };
 
-window.openGroup = g=>{
-  const body=document.getElementById("studentsTable");
-  onValue(ref(db,`students/group${g}`),(snap)=>{
-    let arr=[];
-    snap.forEach(c=>{
-      const s=c.val();
-      const total=(s.l||0)+(s.t||0)+(s.g||0);
-      arr.push({...s,total});
+// ================= عرض الطلاب =================
+window.openGroup = g => {
+  const body = document.getElementById("studentsTable");
+  onValue(ref(db, `students/group${g}`), snap => {
+    if (!snap.exists()) {
+      body.innerHTML = `<tr><td colspan="6">لا توجد بيانات</td></tr>`;
+      return;
+    }
+    let arr = [];
+    snap.forEach(c => {
+      const s = c.val();
+      const total = (s.l || 0) + (s.t || 0) + (s.g || 0);
+      arr.push({ ...s, total });
     });
 
-    arr.sort((a,b)=>b.total-a.total);
+    arr.sort((a, b) => b.total - a.total);
 
-    body.innerHTML="";
-    arr.forEach((s,i)=>{
-      body.innerHTML+=`<tr>
-        <td>${i+1}</td>
+    body.innerHTML = "";
+    arr.forEach((s, i) => {
+      body.innerHTML += `<tr>
+        <td>${i + 1}</td>
         <td>${s.name}</td>
-        <td>${s.l||0}</td>
-        <td>${s.t||0}</td>
-        <td>${s.g||0}</td>
+        <td>${s.l || 0}</td>
+        <td>${s.t || 0}</td>
+        <td>${s.g || 0}</td>
         <td class="total">${s.total}</td>
       </tr>`;
     });
+  }, error => {
+    console.error("Firebase read error:", error);
+    alert("حدث خطأ في الاتصال بقاعدة البيانات");
   });
+
   show("students");
 };
 
-window.openAdmin = ()=>{
+// ================= لوحة التحكم =================
+window.openAdmin = () => {
   if(prompt("كلمة المرور")!=="6742981") return;
-  renderAdmin(); show("admin");
+  renderAdmin(); 
+  show("admin");
 };
 
-window.renderAdmin = ()=>{
-  const g=groupSelect.value;
-  const body=document.getElementById("adminTable");
+window.renderAdmin = () => {
+  const g = document.getElementById("groupSelect").value;
+  const body = document.getElementById("adminTable");
 
-  onValue(ref(db,`students/group${g}`),(snap)=>{
-    body.innerHTML="";
-    snap.forEach(c=>{
-      const s=c.val();
-      const total=(s.l||0)+(s.t||0)+(s.g||0);
+  onValue(ref(db, `students/group${g}`), snap => {
+    body.innerHTML = "";
+    if (!snap.exists()) return;
 
-      body.innerHTML+=`<tr>
+    snap.forEach(c => {
+      const s = c.val();
+      const total = (s.l||0)+(s.t||0)+(s.g||0);
+
+      body.innerHTML += `<tr>
         <td>${s.name}</td>
         <td><input value="${s.l||0}" onchange="upd('${g}','${c.key}','l',this.value)"></td>
         <td><input value="${s.t||0}" onchange="upd('${g}','${c.key}','t',this.value)"></td>
@@ -208,31 +222,38 @@ window.renderAdmin = ()=>{
         <td><button class="delete-btn" onclick="delStudent('${g}','${c.key}')">حذف</button></td>
       </tr>`;
     });
-  });
+  }, error => console.error(error));
 };
 
-window.upd=(g,id,k,v)=>{
-  update(ref(db,`students/group${g}/${id}`),{[k]:+v});
+// ================= تحديث وحذف =================
+window.upd = (g, id, k, v) => {
+  update(ref(db, `students/group${g}/${id}`), {[k]: +v});
 };
 
-window.delStudent=(g,id)=>{
+window.delStudent = (g, id) => {
   if(confirm("هل تريد حذف الطالب؟")){
-    remove(ref(db,`students/group${g}/${id}`));
+    remove(ref(db, `students/group${g}/${id}`));
   }
 };
 
-window.addStudent=()=>{
-  const g=groupSelect.value;
-  if(!nName.value.trim()) return alert("اكتب الاسم");
+// ================= إضافة طالب =================
+window.addStudent = () => {
+  const g = document.getElementById("groupSelect").value;
+  const name = document.getElementById("nName").value.trim();
+  const l = +document.getElementById("nl").value || 0;
+  const t = +document.getElementById("nt").value || 0;
+  const gScore = +document.getElementById("ng").value || 0;
 
-  push(ref(db,`students/group${g}`),{
-    name:nName.value,
-    l:+nl.value||0,
-    t:+nt.value||0,
-    g:+ng.value||0
+  if(!name) return alert("اكتب الاسم");
+
+  push(ref(db, `students/group${g}`), {
+    name, l, t, g: gScore
   });
 
-  nName.value=nl.value=nt.value=ng.value="";
+  document.getElementById("nName").value = "";
+  document.getElementById("nl").value = "";
+  document.getElementById("nt").value = "";
+  document.getElementById("ng").value = "";
 };
 </script>
 
